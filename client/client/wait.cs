@@ -19,14 +19,14 @@ namespace Go
     {
         private string username, op;
         private bool opponent = false;
+        private Thread listener, waiter;
 
         public wait(string u)
         {
             InitializeComponent();
             username = u;
-            Thread t = new Thread(new ThreadStart(listen));
-            t.Start();
-            waiting();
+            label1.Hide();
+            CheckForIllegalCrossThreadCalls = false;
         }
 
         private void listen()
@@ -64,6 +64,8 @@ namespace Go
                         send.Shutdown(SocketShutdown.Both);
                         send.Close();
                         Form f = new play(username, op);
+                        f.Show();
+                        this.Hide();
                     }
                 }
                 catch (ArgumentNullException ane)
@@ -86,6 +88,26 @@ namespace Go
             }
         }
 
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (button1.Text == "Annulla")
+            {
+                MessageBox.Show("Ricerca avversario annullata");
+                Form f = new login();
+                f.Show();
+                this.Hide();
+            }
+            else
+            {
+                button1.Text = "Annulla";
+                label1.Show();
+                listener = new Thread(new ThreadStart(listen));
+                waiter = new Thread(new ThreadStart(waiting));
+                listener.Start();
+                waiter.Start();
+            }
+        }
+
         private void waiting()
         {
             int c = 0;
@@ -101,6 +123,7 @@ namespace Go
                     c++;
                     label1.Text += ".";
                 }
+                Thread.Sleep(750);
             }
         }
     }
