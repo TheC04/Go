@@ -35,9 +35,14 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackgroundImage = global::client.Properties.Resources.field;
-            this.ClientSize = new System.Drawing.Size(429, 427);
+            this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
+            this.ClientSize = new System.Drawing.Size(429, 429);
+            this.DoubleBuffered = true;
+            this.MaximizeBox = false;
             this.Name = "play";
             this.Text = "Play";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.play_FormClosing);
+            this.Load += new System.EventHandler(this.play_Load);
             this.ResumeLayout(false);
 
         }

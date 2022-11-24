@@ -42,6 +42,7 @@
             this.start.TabIndex = 7;
             this.start.Text = "Inserisci il tuo\r\nnome utente";
             this.start.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.start.Click += new System.EventHandler(this.start_Click);
             // 
             // textBox1
             // 

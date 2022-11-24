@@ -34,5 +34,10 @@ namespace Go
                 e.Handled = true;
             }
         }
+
+        private void start_Click(object sender, EventArgs e)
+        {
+            Console.WriteLine("aaa");
+        }
     }
 }

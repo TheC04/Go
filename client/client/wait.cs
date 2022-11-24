@@ -103,8 +103,11 @@ namespace Go
                 label1.Show();
                 listener = new Thread(new ThreadStart(listen));
                 waiter = new Thread(new ThreadStart(waiting));
-                listener.Start();
-                waiter.Start();
+                //listener.Start();
+                //waiter.Start();
+                Form f = new play(username, op);
+                f.Show();
+                this.Hide();
             }
         }
 
