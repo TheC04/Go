@@ -47,26 +47,14 @@ namespace Go
                     {
                         int bytesRec = send.Receive(bytes);
                     }
-                    if (bytes.ToString() == "no**")
-                    {
-                        MessageBox.Show("Non è stato trovato alcun avversario");
-                        send.Shutdown(SocketShutdown.Both);
-                        send.Close();
-                        Form f = new login();
-                        f.Show();
-                        this.Hide();
-                    }
-                    else
-                    {
-                        op = bytes.ToString().Split('*')[0];
-                        MessageBox.Show("Stai per sfidare " + op);
-                        opponent = true;
-                        send.Shutdown(SocketShutdown.Both);
-                        send.Close();
-                        Form f = new play(username, op);
-                        f.Show();
-                        this.Hide();
-                    }
+                    op = bytes.ToString().Split('*')[0];
+                    MessageBox.Show("Stai per sfidare " + op);
+                    opponent = true;
+                    send.Shutdown(SocketShutdown.Both);
+                    send.Close();
+                    Form f = new play(username, op);
+                    f.Show();
+                    this.Hide();
                 }
                 catch (ArgumentNullException ane)
                 {
@@ -103,8 +91,8 @@ namespace Go
                 label1.Show();
                 listener = new Thread(new ThreadStart(listen));
                 waiter = new Thread(new ThreadStart(waiting));
-                //listener.Start();
-                //waiter.Start();
+                listener.Start();
+                waiter.Start();
                 Form f = new play(username, op);
                 f.Show();
                 this.Hide();

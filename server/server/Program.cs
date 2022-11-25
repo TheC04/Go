@@ -7,38 +7,44 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.ComponentModel;
 
 namespace server
 {
     internal class Program
     {
 
+        public class tp
+        {
+            public static Thread[] tpool = new Thread[2];
+        }
+
+        public class pawn
+        {
+            public int t, b, l, r, val = 0;
+        }
+
         public class global
         {
-            public static string data = null;
-            public bool on = true, match = false;
-            public Thread[] tpool = new Thread[2];
+            private static string data = null, t1, t2;
+            private bool on = true, match = false, turn;
+            static IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
+            static IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 5000);
+            static Socket sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            Socket handler;
+            SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+            //matrice di pedine
 
-            public void listen()
+            public void connect()
             {
                 byte[] bytes = new Byte[1024];
-
-                IPAddress ipAddress = System.Net.IPAddress.Parse("127.0.0.1");
-                IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 5000);
-
-                Socket listener = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
                 try
                 {
-                    if (on)
-                    {
-                        listener.Bind(localEndPoint);
-                        listener.Listen(10);
-                    }
-
+                    sok.Bind(localEndPoint);
+                    sok.Listen(10);
+                    handler = sok.Accept();
                     while (on)
                     {
-                        Socket handler = listener.Accept();
                         data = null;
                         while (true)
                         {
@@ -49,11 +55,62 @@ namespace server
                                 break;
                             }
                         }
-                        //semaforo incrociato così quando arriva all'altro parte anche qui
+                        if (Thread.CurrentThread == tp.tpool[0])
+                        {
+                            if (semaphore.CurrentCount == 1)
+                            {
+                                Console.WriteLine("Thread 1 arrived");
+                                color();
+                                Console.WriteLine("Color chosen");
+                                semaphore.Release();
+                                while (bytes.ToString() != "ok**")
+                                {
+                                    handler.Send(Encoding.ASCII.GetBytes(t2));
+                                    handler.Receive(bytes);
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Thread 1 is waiting for an opponent");
+                                semaphore.Wait();
+                                while (bytes.ToString() != "ok**")
+                                {
+                                    handler.Send(Encoding.ASCII.GetBytes(t1));
+                                    handler.Receive(bytes);
+                                }
+                            }
+                            startmatch();
+                        }
+                        else if (Thread.CurrentThread == tp.tpool[1])
+                        {
+                            if (semaphore.CurrentCount == 1)
+                            {
+                                Console.WriteLine("Thread 2 arrived");
+                                color();
+                                Console.WriteLine("Color chosen");
+                                semaphore.Release();
+                                while (bytes.ToString() != "ok**")
+                                {
+                                    handler.Send(Encoding.ASCII.GetBytes(t2));
+                                    handler.Receive(bytes);
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Thread 2 is waiting for an opponent");
+                                semaphore.Wait();
+                                while (bytes.ToString() != "ok**")
+                                {
+                                    handler.Send(Encoding.ASCII.GetBytes(t1));
+                                    handler.Receive(bytes);
+                                }
+                            }
+                            startmatch();
+                        }
                         //byte[] msg = Encoding.ASCII.GetBytes();
                         //handler.Send(msg);
-                        handler.Shutdown(SocketShutdown.Both);
-                        handler.Close();
+                        //handler.Shutdown(SocketShutdown.Both);
+                        //handler.Close();
                     }
                 }
                 catch (Exception e)
@@ -61,19 +118,84 @@ namespace server
                     Console.WriteLine(e.ToString());
                 }
             }
+            public void color()
+            {
+                bool ok = false;
+                while (!ok)
+                {
+                    Random r = new Random();
+                    if (r.Next(0, 100) < 50)
+                    {
+                        t1 = "white**";
+                        t2 = "black**";
+                        ok = true;
+                    }
+                    else if (r.Next(0, 100) > 50)
+                    {
+                        t1 = "black**";
+                        t2 = "white**";
+                        ok = true;
+                    }
+                }
+            }
+
+            public void startmatch()
+            {
+                byte[] bytes = new Byte[1024];
+                if (t1 == "white**")
+                {
+                    turn = true;
+                }
+                else
+                {
+                    turn = false;
+                }
+                while (match)
+                {
+                    if (Thread.CurrentThread == tp.tpool[0])
+                    {
+                        if (!turn)
+                        {
+                            semaphore.Wait();
+                        }
+                        Console.WriteLine("T1 turn");
+                        handler.Send(Encoding.ASCII.GetBytes("yt**"));
+                        handler.Receive(bytes);
+                        Console.WriteLine("Move recived from T1: " + bytes.ToString());
+                        refresh(bytes.ToString());
+                        semaphore.Release();
+                    }
+                    else if (Thread.CurrentThread == tp.tpool[1])
+                    {
+                        if (turn)
+                        {
+                            semaphore.Wait();
+                        }
+                        Console.WriteLine("T2 turn");
+                        handler.Send(Encoding.ASCII.GetBytes("yt**"));
+                        handler.Receive(bytes);
+                        Console.WriteLine("Move recived from T2: " + bytes.ToString());
+                        refresh(bytes.ToString());
+                        semaphore.Release();
+                    }
+                    turn = !turn;
+                }
+            }
+            private void refresh(string move)
+            {
+                //metto pedina e elimino eventuali mangiate
+            }
         }
 
         static void Main(string[] args)
         {
-            global g = new global();
-            g.tpool[0] = new Thread(new ThreadStart(g.listen));
-            g.tpool[1] = new Thread(new ThreadStart(g.listen));
-            g.tpool[0].Start();
-            g.tpool[1].Start();
-            /*while (g.match)
-            {
-
-            }*/
+            tp threads = new tp();
+            global g1 = new global();
+            global g2 = new global();
+            tp.tpool[0] = new Thread(new ThreadStart(g1.connect));
+            tp.tpool[1] = new Thread(new ThreadStart(g2.connect));
+            tp.tpool[0].Start();
+            tp.tpool[1].Start();
         }
     }
 }
