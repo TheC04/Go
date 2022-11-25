@@ -31,53 +31,6 @@ namespace Go
             create();
         }
 
-        private void roundlabel(System.Drawing.Drawing2D.GraphicsPath path, Label l)
-        {
-            path.AddEllipse(0, 0, l.Width, l.Height);
-            l.Region = new Region(path);
-            Graphics graphics = this.CreateGraphics();
-            Rectangle rectangle = new Rectangle(100, 100, 200, 200);
-            graphics.DrawEllipse(Pens.Black, rectangle);
-        }
-        private void labelc(Label sender)
-        {
-            var path = new System.Drawing.Drawing2D.GraphicsPath();
-            if (sender.BackColor == Color.Transparent)
-            {
-                roundlabel(path, sender);
-                sender.BackColor = Color.FromName(me);
-                sender.Enabled = false;
-            }   
-        }
-        private void label1_Click(object sender, EventArgs e)
-        {
-            int i = 0;
-            if (turn)
-            {
-                labelc((Label)sender);
-                turn = false;
-            }
-            else
-            {
-                i++;
-            }
-            if (i == 3)
-            {
-                MessageBox.Show("Fai giocare anche il tuo avversario");
-            }
-            else if (i == 6)
-            {
-                MessageBox.Show("Non tocca a te, smettila");
-            }
-            else if (i == 9)
-            {
-                MessageBox.Show("Prova a cliccare di nuovo, ti sfido, due volte, ti sfido");
-            }
-            else if (i == 10)
-            {
-                this.Close();
-            }
-        }
         private void create()
         {
             Label[][] lb = new Label[9][];
@@ -117,13 +70,69 @@ namespace Go
                 }
             }
         }
+        private void roundlabel(System.Drawing.Drawing2D.GraphicsPath path, Label l)
+        {
+            path.AddEllipse(0, 0, l.Width, l.Height);
+            l.Region = new Region(path);
+            Graphics graphics = this.CreateGraphics();
+            Rectangle rectangle = new Rectangle(100, 100, 200, 200);
+            graphics.DrawEllipse(Pens.Black, rectangle);
+        }
+        private void labelc(Label sender)
+        {
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            if (sender.BackColor == Color.Transparent)
+            {
+                roundlabel(path, sender);
+                sender.BackColor = Color.FromName(me);
+                sender.Enabled = false;
+                send(sender.Name);
+            }
+            else
+            {
+                MessageBox.Show("Non puoi mettere qui la tua pedina");
+            }   
+        }
+        private void label1_Click(object sender, EventArgs e)
+        {
+            int i = 0;
+            if (turn)
+            {
+                labelc((Label)sender);
+                turn = false;
+            }
+            else
+            {
+                i++;
+            }
+            if (i == 3)
+            {
+                MessageBox.Show("Fai giocare anche il tuo avversario");
+            }
+            else if (i == 6)
+            {
+                MessageBox.Show("Non tocca a te, smettila");
+            }
+            else if (i == 9)
+            {
+                MessageBox.Show("Prova a cliccare di nuovo, ti sfido, due volte, ti sfido");
+            }
+            else if (i == 10)
+            {
+                this.Close();
+            }
+        }
+        private void send(string msg)
+        {
+            sok.Send(Encoding.ASCII.GetBytes(msg));
+        }
 
         private void play_Load(object sender, EventArgs e)
         {
-            t = new Thread(startL);
+            t = new Thread(getC);
         }
 
-        private void startL()
+        private void getC()
         {
             byte[] bytes = new byte[1024];
             byte[] msg;
@@ -150,7 +159,7 @@ namespace Go
                             msg = Encoding.ASCII.GetBytes("a**");
                             i++;
                         }
-                        if (i == 0)
+                        if (i == 10)
                         {
                             MessageBox.Show("Non è stato possibile comunicare con il server");
                             break;
@@ -160,7 +169,10 @@ namespace Go
                     sok.Receive(bytes);
                     if (bytes.ToString() == "yt**")
                     {
-                        turn = true;
+                        lock (this)
+                        {
+                            turn = true;
+                        }
                     }
                 }
                 catch (ArgumentNullException ane)
