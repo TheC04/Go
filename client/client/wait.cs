@@ -43,7 +43,7 @@ namespace Go
                     send.Connect(remoteEP);
                     byte[] msg = Encoding.ASCII.GetBytes(Sender + "**");
                     int bytesSent = send.Send(msg);
-                    while (bytes.ToString().Length > 0)
+                    while (Encoding.ASCII.GetString(bytes) != "ok**")
                     {
                         int bytesRec = send.Receive(bytes);
                     }

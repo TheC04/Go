@@ -67,8 +67,7 @@ namespace server
                         break;
                     }
                 }
-                //perché arrivano byte?
-                Console.WriteLine(bytes.ToString());
+                handler.Send(Encoding.ASCII.GetBytes("ok**"));
                 if (Thread.CurrentThread == threads.tpool[0])
                 {
                     if (semaphore.CurrentCount == 1)
