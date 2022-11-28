@@ -19,6 +19,12 @@ namespace server
             public Thread[] tpool = new Thread[2];
         }
 
+        public class user
+        {
+            public string username;
+            public string color;
+        }
+
         public class pawn
         {
             public int t, b, l, r, val = 0;
@@ -26,7 +32,9 @@ namespace server
 
         public class global
         {
-            private static string data = null, t1, t2, u1, u2;
+            int i = 0;
+            private static string data = null;
+            user[] u = new user[2];
             private bool on = true, match = false, turn;
             byte[] bytes = new Byte[1024];
             tp threads = new tp();
@@ -37,18 +45,24 @@ namespace server
 
             public void connect()
             {
-                int i = 0;
                 try
                 {
-                    IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
-                    IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 5000);
-                    sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                    sok.Bind(localEndPoint);
-                    sok.Listen(10);
-                    handler = sok.Accept();
-                    threads.tpool[i] = new Thread(new ThreadStart(setup));
-                    threads.tpool[i].Start();
-                    i++;
+                    if (i < 2)
+                    {
+                        IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
+                        IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 5000);
+                        sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                        sok.Bind(localEndPoint);
+                        sok.Listen(10);
+                        handler = sok.Accept();
+                        threads.tpool[i] = new Thread(new ThreadStart(setup));
+                        threads.tpool[i].Start();
+                        i++;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Another client tried to connect, but there are no space left");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -61,65 +75,39 @@ namespace server
                 while (true)
                 {
                     int bytesRec = handler.Receive(bytes);
-                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
                     if (data.IndexOf("**") > -1)
                     {
+                        u[i].username = data;
+                        Console.WriteLine(u[i]);
                         break;
                     }
                 }
                 handler.Send(Encoding.ASCII.GetBytes("ok**"));
-                if (Thread.CurrentThread == threads.tpool[0])
+                //current thread per i colori
+                if (semaphore.CurrentCount == 1)
                 {
-                    if (semaphore.CurrentCount == 1)
+                    Console.WriteLine("Thread  " + Thread.CurrentThread.ToString() + " arrived");
+                    color();
+                    Console.WriteLine("Color chosen");
+                    semaphore.Release();
+                    while (bytes.ToString() != "ok**")
                     {
-                        Console.WriteLine("Thread 1 arrived");
-                        color();
-                        Console.WriteLine("Color chosen");
-                        semaphore.Release();
-                        while (bytes.ToString() != "ok**")
-                        {
-                            handler.Send(Encoding.ASCII.GetBytes(t2));
-                            handler.Receive(bytes);
-                        }
+                        handler.Send(Encoding.ASCII.GetBytes(u[]));
+                        handler.Receive(bytes);
                     }
-                    else
-                    {
-                        Console.WriteLine("Thread 1 is waiting for an opponent");
-                        semaphore.Wait();
-                        while (bytes.ToString() != "ok**")
-                        {
-                            handler.Send(Encoding.ASCII.GetBytes(t1));
-                            handler.Receive(bytes);
-                        }
-                    }
-                    startmatch();
                 }
-                else if (Thread.CurrentThread == threads.tpool[1])
+                else
                 {
-                    if (semaphore.CurrentCount == 1)
+                    Console.WriteLine("Thread " + Thread.CurrentThread.ToString() + " is waiting for an opponent");
+                    semaphore.Wait();
+                    while (bytes.ToString() != "ok**")
                     {
-                        Console.WriteLine("Thread 2 arrived");
-                        color();
-                        Console.WriteLine("Color chosen");
-                        semaphore.Release();
-                        while (bytes.ToString() != "ok**")
-                        {
-                            handler.Send(Encoding.ASCII.GetBytes(t2));
-                            handler.Receive(bytes);
-                        }
+                        handler.Send(Encoding.ASCII.GetBytes(u[]));
+                        handler.Receive(bytes);
                     }
-                    else
-                    {
-                        Console.WriteLine("Thread 2 is waiting for an opponent");
-                        semaphore.Wait();
-                        while (bytes.ToString() != "ok**")
-                        {
-                            handler.Send(Encoding.ASCII.GetBytes(t1));
-                            handler.Receive(bytes);
-                        }
-                    }
-                    startmatch();
                 }
+                startmatch();
                 //byte[] msg = Encoding.ASCII.GetBytes();
                 //handler.Send(msg);
                 //handler.Shutdown(SocketShutdown.Both);
@@ -133,14 +121,14 @@ namespace server
                     Random r = new Random();
                     if (r.Next(0, 100) < 50)
                     {
-                        t1 = "white**";
-                        t2 = "black**";
+                        u[1].color = "white**";
+                        u[0].color = "black**";
                         ok = true;
                     }
                     else if (r.Next(0, 100) > 50)
                     {
-                        t1 = "black**";
-                        t2 = "white**";
+                        u[1].color = "black**";
+                        u[0].color = "white**";
                         ok = true;
                     }
                 }
@@ -149,7 +137,7 @@ namespace server
             public void startmatch()
             {
                 byte[] bytes = new Byte[1024];
-                if (t1 == "white**")
+                if (u[0].color == "white**")
                 {
                     turn = true;
                 }
