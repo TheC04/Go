@@ -20,6 +20,9 @@ namespace Go
         private string username, op;
         private bool opponent = false;
         private Thread listener, waiter;
+        static IPAddress ipAddress = System.Net.IPAddress.Parse("127.0.0.1");
+        IPEndPoint remoteEP = new IPEndPoint(ipAddress, 5000);
+        Socket send = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
         public wait(string u)
         {
@@ -35,44 +38,39 @@ namespace Go
             byte[] bytes = new byte[1024];
             try
             {
-                IPAddress ipAddress = System.Net.IPAddress.Parse("127.0.0.1");
-                IPEndPoint remoteEP = new IPEndPoint(ipAddress, 5000);
-                Socket send = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                try
+                send.Connect(remoteEP);
+                byte[] msg = Encoding.ASCII.GetBytes(Sender + "**");
+                int bytesSent = send.Send(msg);
+                while (true)
                 {
-                    send.Connect(remoteEP);
-                    byte[] msg = Encoding.ASCII.GetBytes(Sender + "**");
-                    int bytesSent = send.Send(msg);
-                    while (Encoding.ASCII.GetString(bytes) != "ok**")
+                    if (Encoding.ASCII.GetString(bytes) != "ok**")
                     {
-                        int bytesRec = send.Receive(bytes);
+                        send.Receive(bytes);
                     }
-                    op = bytes.ToString().Split('*')[0];
-                    MessageBox.Show("Stai per sfidare " + op);
-                    opponent = true;
-                    send.Shutdown(SocketShutdown.Both);
-                    send.Close();
-                    Form f = new play(username, op);
-                    f.Show();
-                    this.Hide();
+                    else
+                    {
+                        op = bytes.ToString().Split('*')[0];
+                        MessageBox.Show("Stai per sfidare " + op);
+                        opponent = true;
+                        send.Shutdown(SocketShutdown.Both);
+                        send.Close();
+                        Form f = new play(username, op);
+                        f.Show();
+                        this.Hide();
+                    }
                 }
-                catch (ArgumentNullException ane)
-                {
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-                catch (SocketException se)
-                {
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-                catch (Exception en)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", en.ToString());
-                }
-
+            }
+            catch (ArgumentNullException ane)
+            {
+                Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
+            }
+            catch (SocketException se)
+            {
+                Console.WriteLine("SocketException : {0}", se.ToString());
             }
             catch (Exception en)
             {
-                Console.WriteLine(en.ToString());
+                Console.WriteLine("Unexpected exception : {0}", en.ToString());
             }
         }
 
@@ -93,9 +91,6 @@ namespace Go
                 waiter = new Thread(new ThreadStart(waiting));
                 listener.Start();
                 waiter.Start();
-                Form f = new play(username, op);
-                f.Show();
-                this.Hide();
             }
         }
 
