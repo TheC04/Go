@@ -12,6 +12,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace Go
 {
@@ -20,9 +22,12 @@ namespace Go
         Thread t;
         string me;
         bool turn = false;
+        byte[] bytes = new byte[1024];
+        byte[] msg;
         static IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
         IPEndPoint remoteEP = new IPEndPoint(ipAddress, 5000);
         Socket sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        Label[][] lb = new Label[9][];
 
         public play(string username, string opponent)
         {
@@ -33,7 +38,6 @@ namespace Go
 
         private void create()
         {
-            Label[][] lb = new Label[9][];
             for (int i = 0; i < 9; i++)
             {
                 lb[i] = new Label[9];
@@ -119,12 +123,48 @@ namespace Go
             }
             else if (i == 10)
             {
+                sok.Shutdown(SocketShutdown.Both);
+                sok.Close();
                 this.Close();
             }
         }
         private void send(string msg)
         {
             sok.Send(Encoding.ASCII.GetBytes(msg));
+            recive();
+        }
+        private void recive()
+        {
+            while (sok.Receive(bytes).ToString().Length != 81)
+            {
+                sok.Receive(bytes);
+            }
+            int i = 0, j = 0;
+            while(i != 8 && j != 8){
+                {
+                    if (bytes.ToString().ElementAt(i) == '0')
+                    {
+                        lb[j][i].BackColor = Color.Transparent;
+                    }
+                    else if (bytes.ToString().ElementAt(i) == '1')
+                    {
+                        lb[j][i].BackColor = Color.White;
+                    }
+                    else
+                    {
+                        lb[j][i].BackColor = Color.Black;
+                    }
+                    if (i == 8)
+                    {
+                        i = 0;
+                        j++;
+                    }
+                    else
+                    {
+                        i++;
+                    }
+                }
+            }
         }
 
         private void play_Load(object sender, EventArgs e)
@@ -134,8 +174,6 @@ namespace Go
 
         private void getC()
         {
-            byte[] bytes = new byte[1024];
-            byte[] msg;
             try
             {
                 try
