@@ -79,7 +79,6 @@ namespace Go
                 Console.WriteLine("Unexpected exception : {0}", en.ToString());
             }
         }
-
         private void button1_Click(object sender, EventArgs e)
         {
             if (button1.Text == "Annulla")
@@ -99,7 +98,6 @@ namespace Go
                 waiter.Start();
             }
         }
-
         private void waiting()
         {
             int c = 0;
@@ -377,6 +375,12 @@ namespace Go
                     }
                 }
             }
+        }
+
+        private void play_Load(object sender, EventArgs e)
+        {
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
         }
 
         private void getC()

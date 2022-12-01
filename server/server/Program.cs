@@ -9,6 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Reflection.Emit;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace server
 {
@@ -38,23 +40,7 @@ namespace server
         public class global
         {
             int i = 0;
-            string status, winner;
-            user[] u = new user[2];
-            bool end = false, turn;
-            byte[] bytes = new Byte[1024];
-            Socket sok;
-            Socket handler;
-            slot[][] f = new slot[9][];
-
-            public global()
-            {
-                createm();
-                for(int i = 0; i < 2 ; i++)
-                {
-                    u[i] = new user();
-                }
-            }
-
+            
             public void connect()
             {
                 try
@@ -63,13 +49,14 @@ namespace server
                     {
                         IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
                         IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 5000);
-                        sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                        Socket sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                         sok.Bind(localEndPoint);
                         sok.Listen(10);
-                        handler = sok.Accept();
+                        Socket handler = sok.Accept();
                         lock ((object)i)
                         {
-                            Thread t = new Thread(new ThreadStart(setup));
+                            client c = new client(handler, i);
+                            Thread t = new Thread(new ThreadStart(c.setup));
                             t.Name = "T" + i.ToString();
                             t.Start();
                             Console.WriteLine(t.Name + " started");
@@ -86,35 +73,64 @@ namespace server
                     Console.WriteLine(e.ToString());
                 }
             }
-            private void setup()
+        }
+
+        public class client
+        {
+            int i;
+            Socket clientS;
+            string status, winner;
+            user[] u = new user[2];
+            bool end = false, turn;
+            byte[] bytes = new Byte[1024];
+            slot[][] f = new slot[9][];
+
+            public client(Socket s, int i)
+            {
+                clientS = s;
+                this.i = i;
+                for (int j = 0; j < 2; j++)
+                {
+                    u[j] = new user();
+                }
+                createm();
+            }
+
+            public void setup()
             {
                 bool ok = false;
                 string data = "";
                 while (data.IndexOf("**") == -1)
                 {
-                    int bytesRec = handler.Receive(bytes);
-                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
-                    lock ((object)i)
+                    try
                     {
-                        u[i].username = data;
-                        Console.WriteLine(u[i].username);
+                        int bytesRec = clientS.Receive(bytes);
+                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
+                        lock ((object)i)
+                        {
+                            u[i].username = data;
+                            Console.WriteLine(u[i].username);
+                        }
+                    }catch(Exception e)
+                    {
+                        Console.WriteLine("Error: " + e);
                     }
                 }
-                handler.Send(Encoding.ASCII.GetBytes("ok**"));
+                clientS.Send(Encoding.ASCII.GetBytes("ok**"));
                 if (i == 1)
                 {
                     Console.WriteLine("Thread  " + Thread.CurrentThread.Name + " arrived");
                     if (Thread.CurrentThread.Name == "T0")
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(u[1].username));
+                        clientS.Send(Encoding.ASCII.GetBytes(u[1].username));
                     }
                     else
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(u[0].username));
+                        clientS.Send(Encoding.ASCII.GetBytes(u[0].username));
                     }
                     while (data.IndexOf("**") == -1)
                     {
-                        int bytesRec = handler.Receive(bytes);
+                        int bytesRec = clientS.Receive(bytes);
                         data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
                         if (data == "ok")
                         {
@@ -126,15 +142,15 @@ namespace server
                     ok = true;
                     if (Thread.CurrentThread.Name == "T0")
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(u[0].color));
+                        clientS.Send(Encoding.ASCII.GetBytes(u[0].color));
                     }
                     else
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(u[1].color));
+                        clientS.Send(Encoding.ASCII.GetBytes(u[1].color));
                     }
                     while (data.IndexOf("**") == -1)
                     {
-                        int bytesRec = handler.Receive(bytes);
+                        int bytesRec = clientS.Receive(bytes);
                         data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
                         if (data == "ok")
                         {
@@ -151,15 +167,15 @@ namespace server
                     }
                     if (Thread.CurrentThread.Name == "T0")
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(u[0].color));
+                        clientS.Send(Encoding.ASCII.GetBytes(u[0].color));
                     }
                     else
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(u[1].color));
+                        clientS.Send(Encoding.ASCII.GetBytes(u[1].color));
                     }
                     while (data.IndexOf("**") == -1)
                     {
-                        int bytesRec = handler.Receive(bytes);
+                        int bytesRec = clientS.Receive(bytes);
                         data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
                         if (data == "ok")
                         {
@@ -191,11 +207,41 @@ namespace server
                     }
                 }
             }
+            void createm()
+            {
+                for (int i = 0; i < 9; i++)
+                {
+                    f[i] = new slot[9];
+                }
+                for (int i = 0; i < 9; i++)
+                {
+                    for (int j = 0; j < 9; j++)
+                    {
+                        f[i][j] = new slot();
+                        if (i == 0)
+                        {
+                            f[i][j].l = -1;
+                        }
+                        if (i == 8)
+                        {
+                            f[i][j].r = -1;
+                        }
+                        if (j == 0)
+                        {
+                            f[i][j].t = -1;
+                        }
+                        if (j == 8)
+                        {
+                            f[i][j].b = -1;
+                        }
+                    }
+                }
+            }
 
             public void match()
             {
                 byte[] bytes = new Byte[1024];
-                if (u[0].color == "white**")
+                if (u[0].color == "black**")
                 {
                     turn = true;
                 }
@@ -212,15 +258,15 @@ namespace server
                             Thread.Sleep(500);
                         }
                         Console.WriteLine("T1 turn");
-                        handler.Send(Encoding.ASCII.GetBytes("yt**"));
-                        handler.Receive(bytes);
+                        clientS.Send(Encoding.ASCII.GetBytes("yt**"));
+                        clientS.Receive(bytes);
                         Console.WriteLine("Move recived from T1: " + bytes.ToString());
                         refresh(bytes.ToString(), u[0].color);
                         turn = !turn;
                     }
                     if (end)
                     {
-                        handler.Send(Encoding.ASCII.GetBytes("end**"));
+                        clientS.Send(Encoding.ASCII.GetBytes("end**"));
                         break;
                     }
                     else
@@ -232,8 +278,8 @@ namespace server
                                 Thread.Sleep(500);
                             }
                             Console.WriteLine("T2 turn");
-                            handler.Send(Encoding.ASCII.GetBytes("yt**"));
-                            handler.Receive(bytes);
+                            clientS.Send(Encoding.ASCII.GetBytes("yt**"));
+                            clientS.Receive(bytes);
                             Console.WriteLine("Move recived from T2: " + bytes.ToString());
                             refresh(bytes.ToString(), u[1].color);
                             turn = !turn;
@@ -241,15 +287,15 @@ namespace server
                     }
                     if (end)
                     {
-                        handler.Send(Encoding.ASCII.GetBytes("end**"));
+                        clientS.Send(Encoding.ASCII.GetBytes("end**"));
                         break;
                     }
                     else
                     {
-                        handler.Send(Encoding.ASCII.GetBytes(status));
+                        clientS.Send(Encoding.ASCII.GetBytes(status));
                     }
                 }
-                handler.Send(Encoding.ASCII.GetBytes(winner + "**"));
+                clientS.Send(Encoding.ASCII.GetBytes(winner + "**"));
             }
             private void refresh(string move, string sender)
             {
@@ -265,7 +311,7 @@ namespace server
                     u = 2;
                 }
                 f[c][r].val = u;
-                if (c > 0 )
+                if (c > 0)
                 {
                     f[c - 1][r].r = u;
                 }
@@ -281,11 +327,11 @@ namespace server
                 {
                     f[c][r + 1].t = u;
                 }
-                for(int i = 0; i < 9; i++)
+                for (int i = 0; i < 9; i++)
                 {
-                    for(int j = 0; j < 9; j++)
+                    for (int j = 0; j < 9; j++)
                     {
-                        if (f[i][j].t!=0 && f[i][j].b != 0 && f[i][j].l != 0 && f[i][j].r != 0)
+                        if (f[i][j].t != 0 && f[i][j].b != 0 && f[i][j].l != 0 && f[i][j].r != 0)
                         {
                             if (f[i][j].val != f[i][j].t && f[i][j].val != f[i][j].b && f[i][j].val != f[i][j].l && f[i][j].val != f[i][j].r)
                             {
@@ -322,7 +368,7 @@ namespace server
                         }
                         else
                         {
-                            if(f[i][j].val == 1)
+                            if (f[i][j].val == 1)
                             {
                                 u1++;
                             }
@@ -363,37 +409,6 @@ namespace server
                     }
                 }
                 return end;
-            }
-
-            void createm()
-            {
-                for (int i = 0; i < 9; i++)
-                {
-                    f[i] = new slot[9];
-                }
-                for(int i = 0; i < 9; i++)
-                {
-                    for(int j = 0; j < 9; j++)
-                    {
-                        f[i][j] = new slot();
-                        if (i == 0)
-                        {
-                            f[i][j].l = -1;
-                        }
-                        if (i == 8)
-                        {
-                            f[i][j].r = -1;
-                        }
-                        if (j == 0)
-                        {
-                            f[i][j].t = -1;
-                        }
-                        if (j == 8)
-                        {
-                            f[i][j].b = -1;
-                        }
-                    }
-                }
             }
         }
 
