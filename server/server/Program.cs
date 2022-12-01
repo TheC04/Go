@@ -38,9 +38,9 @@ namespace server
         public class global
         {
             int i = 0;
-            string status;
+            string status, winner;
             user[] u = new user[2];
-            private bool on = true, match = false, turn;
+            bool end = false, turn;
             byte[] bytes = new Byte[1024];
             Socket sok;
             Socket handler;
@@ -167,7 +167,7 @@ namespace server
                         }
                     }
                 }
-                startmatch();
+                match();
                 //handler.Shutdown(SocketShutdown.Both);
                 //handler.Close();
             }
@@ -192,7 +192,7 @@ namespace server
                 }
             }
 
-            public void startmatch()
+            public void match()
             {
                 byte[] bytes = new Byte[1024];
                 if (u[0].color == "white**")
@@ -203,7 +203,7 @@ namespace server
                 {
                     turn = false;
                 }
-                while (match)
+                while (true)
                 {
                     if (Thread.CurrentThread.Name == "T0")
                     {
@@ -216,22 +216,40 @@ namespace server
                         handler.Receive(bytes);
                         Console.WriteLine("Move recived from T1: " + bytes.ToString());
                         refresh(bytes.ToString(), u[0].color);
+                        turn = !turn;
                     }
-                    else if (Thread.CurrentThread.Name == "T1")
+                    if (end)
                     {
-                        while (turn)
-                        {
-                            Thread.Sleep(500);
-                        }
-                        Console.WriteLine("T2 turn");
-                        handler.Send(Encoding.ASCII.GetBytes("yt**"));
-                        handler.Receive(bytes);
-                        Console.WriteLine("Move recived from T2: " + bytes.ToString());
-                        refresh(bytes.ToString(), u[1].color);
+                        handler.Send(Encoding.ASCII.GetBytes("end**"));
+                        break;
                     }
-                    handler.Send(Encoding.ASCII.GetBytes(status));
-                    turn = !turn;
+                    else
+                    {
+                        if (Thread.CurrentThread.Name == "T1")
+                        {
+                            while (turn)
+                            {
+                                Thread.Sleep(500);
+                            }
+                            Console.WriteLine("T2 turn");
+                            handler.Send(Encoding.ASCII.GetBytes("yt**"));
+                            handler.Receive(bytes);
+                            Console.WriteLine("Move recived from T2: " + bytes.ToString());
+                            refresh(bytes.ToString(), u[1].color);
+                            turn = !turn;
+                        }
+                    }
+                    if (end)
+                    {
+                        handler.Send(Encoding.ASCII.GetBytes("end**"));
+                        break;
+                    }
+                    else
+                    {
+                        handler.Send(Encoding.ASCII.GetBytes(status));
+                    }
                 }
+                handler.Send(Encoding.ASCII.GetBytes(winner + "**"));
             }
             private void refresh(string move, string sender)
             {
@@ -271,7 +289,14 @@ namespace server
                         {
                             if (f[i][j].val != f[i][j].t && f[i][j].val != f[i][j].b && f[i][j].val != f[i][j].l && f[i][j].val != f[i][j].r)
                             {
-                                f[i][j].val = 0;
+                                if (f[i][j].l != -1)
+                                {
+                                    f[i][j].val = f[i][j].l;
+                                }
+                                else
+                                {
+                                    f[i][j].val = f[i][j].r;
+                                }
                             }
                         }
                         status += f[i][j].ToString();
@@ -280,10 +305,12 @@ namespace server
                 if (checkwin())
                 {
                     Console.WriteLine("Game ended");
+                    end = true;
                 }
             }
             bool checkwin()
             {
+                int u1 = 0, u2 = 0;
                 bool end = true;
                 for (int i = 0; i < 9; i++)
                 {
@@ -293,6 +320,46 @@ namespace server
                         {
                             end = false;
                         }
+                        else
+                        {
+                            if(f[i][j].val == 1)
+                            {
+                                u1++;
+                            }
+                            else
+                            {
+                                u2++;
+                            }
+                        }
+                    }
+                }
+                if (end)
+                {
+                    if (u1 > u2)
+                    {
+                        if (u[0].color == "white**")
+                        {
+                            winner = u[0].username;
+                        }
+                        else
+                        {
+                            winner = u[1].username;
+                        }
+                    }
+                    else if (u1 < u2)
+                    {
+                        if (u[0].color == "black**")
+                        {
+                            winner = u[0].username;
+                        }
+                        else
+                        {
+                            winner = u[1].username;
+                        }
+                    }
+                    else
+                    {
+                        winner = "draw!";
                     }
                 }
                 return end;

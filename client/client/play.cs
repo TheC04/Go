@@ -311,10 +311,44 @@ namespace Go
         }
         private void recive()
         {
-            string tab="";
+            string tab = "", name = "";
             while (tab.Length != 81)
             {
-                tab += sok.Receive(bytes);
+                tab += sok.Receive(bytes).ToString().Split('*')[0];
+                if (tab == "end")
+                {
+                    while (name.IndexOf("*") != -1)
+                    {
+                        name += sok.Receive(bytes).ToString().Split('*')[0];
+                        if (name == username)
+                        {
+                            sok.Shutdown(SocketShutdown.Both);
+                            sok.Close();
+                            MessageBox.Show("Hai vinto!");
+                            Form f = new login();
+                            f.Show();
+                            this.Close();
+                        }
+                        else if (name == "draw!")
+                        {
+                            sok.Shutdown(SocketShutdown.Both);
+                            sok.Close();
+                            MessageBox.Show("Pareggio");
+                            Form f = new login();
+                            f.Show();
+                            this.Close();
+                        }
+                        else
+                        {
+                            sok.Shutdown(SocketShutdown.Both);
+                            sok.Close();
+                            MessageBox.Show("Hai perso...");
+                            Form f = new login();
+                            f.Show();
+                            this.Close();
+                        }
+                    }
+                }
             }
             int i = 0, j = 0;
             while (i != 8 && j != 8)
