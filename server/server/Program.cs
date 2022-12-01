@@ -271,15 +271,7 @@ namespace server
                         {
                             if (f[i][j].val != f[i][j].t && f[i][j].val != f[i][j].b && f[i][j].val != f[i][j].l && f[i][j].val != f[i][j].r)
                             {
-                                //scrivere semplificazione nel readme
-                                if (f[i][j].l != -1)
-                                {
-                                    f[i][j].val = f[i][j].l;
-                                }
-                                else
-                                {
-                                    f[i][j].val = f[i][j].r;
-                                }
+                                f[i][j].val = 0;
                             }
                         }
                         status += f[i][j].ToString();

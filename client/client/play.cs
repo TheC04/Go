@@ -179,17 +179,103 @@ namespace Go
         private void labelc(Label sender)
         {
             var path = new System.Drawing.Drawing2D.GraphicsPath();
-            if (sender.BackColor == Color.Transparent)
+            int c = int.Parse(sender.Name.Split(';')[0]), r = int.Parse(sender.Name.Split(';')[1]);
+            if(checksuicide(c, r))
             {
-                roundlabel(path, sender);
-                sender.BackColor = Color.FromName(me);
-                sender.Enabled = false;
-                sok.Send(Encoding.ASCII.GetBytes(sender.Name));
+                if (sender.BackColor == Color.Transparent)
+                {
+                    roundlabel(path, sender);
+                    sender.BackColor = Color.FromName(me);
+                    sender.Enabled = false;
+                    sok.Send(Encoding.ASCII.GetBytes(sender.Name));
+                }
+                else
+                {
+                    MessageBox.Show("Non puoi mettere qui la tua pedina");
+                }
             }
             else
             {
-                MessageBox.Show("Non puoi mettere qui la tua pedina");
+                MessageBox.Show("Non puoi mettere una pedina dove verrebbe mangiata");
             }
+            
+        }
+        bool checksuicide(int c, int r)
+        {
+            bool ok = true;
+            if (c == 0)
+            {
+                if (r == 0)
+                {
+                    if (lb[c + 1][r].BackColor!=Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+                else if (r == 8)
+                {
+                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+                else
+                {
+                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+            }
+            else if (c == 8)
+            {
+                if (r == 0)
+                {
+                    if (lb[c - 1][r].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+                else if (r == 8)
+                {
+                    if (lb[c - 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+                else
+                {
+                    if (lb[c - 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+            }
+            else
+            {
+                if (r == 0)
+                {
+                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me) && lb[c - 1][r].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+                else if (r == 8)
+                {
+                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c - 1][r].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+                else
+                {
+                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me) && lb[c - 1][r].BackColor != Color.FromName(me))
+                    {
+                        ok = false;
+                    }
+                }
+            }
+            return ok;
         }
         private void label1_Click(object sender, EventArgs e)
         {
