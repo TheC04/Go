@@ -3,17 +3,16 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Net;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
-using System.Globalization;
-using System.Runtime.InteropServices;
+using System.Xml.Linq;
+using client.Properties;
 
 namespace Go
 {
@@ -23,19 +22,114 @@ namespace Go
         string me;
         bool turn = false;
         byte[] bytes = new byte[1024];
-        byte[] msg;
+        Label[][] lb = new Label[9][];
+        string username, op;
+        bool opponent = false;
+        Thread listener, waiter;
         static IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
         IPEndPoint remoteEP = new IPEndPoint(ipAddress, 5000);
         Socket sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-        Label[][] lb = new Label[9][];
 
-        public play(string username, string opponent)
+        public play(string u)
         {
             InitializeComponent();
-            this.DoubleBuffered = true;
-            create();
+            username = u;
+            label1.Hide();
+            CheckForIllegalCrossThreadCalls = false;
         }
 
+        private void listen()
+        {
+            string Sender = username;
+            byte[] bytes = new byte[1024];
+            try
+            {
+                sok.Connect(remoteEP);
+                byte[] msg = Encoding.ASCII.GetBytes(Sender + "**");
+                int bytesSent = sok.Send(msg);
+                if (Encoding.ASCII.GetString(bytes).Split('*')[0] != "ok")
+                {
+                    sok.Receive(bytes);
+                }
+                while (bytes.ToString().IndexOf("**") == -1)
+                {
+                    op = bytes.ToString().Split('*')[0];
+                    MessageBox.Show("Stai per sfidare " + op);
+                    opponent = true;
+                }
+                sok.Send(Encoding.ASCII.GetBytes("ok**"));
+                while (bytes.ToString().IndexOf("**") == -1)
+                {
+                    op = bytes.ToString().Split('*')[0];
+                    MessageBox.Show("Sarai il " + op);
+                    me = op;
+                }
+                chform();
+            }
+            catch (ArgumentNullException ane)
+            {
+                Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
+            }
+            catch (SocketException se)
+            {
+                Console.WriteLine("SocketException : {0}", se.ToString());
+            }
+            catch (Exception en)
+            {
+                Console.WriteLine("Unexpected exception : {0}", en.ToString());
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            if (button1.Text == "Annulla")
+            {
+                MessageBox.Show("Ricerca avversario annullata");
+                Form f = new login();
+                f.Show();
+                this.Hide();
+            }
+            else
+            {
+                button1.Text = "Annulla";
+                label1.Show();
+                listener = new Thread(new ThreadStart(listen));
+                waiter = new Thread(new ThreadStart(waiting));
+                listener.Start();
+                waiter.Start();
+            }
+        }
+
+        private void waiting()
+        {
+            int c = 0;
+            while (!opponent)
+            {
+                if (c == 3)
+                {
+                    c = 0;
+                    label1.Text = "In attesa di un avversario";
+                }
+                else
+                {
+                    c++;
+                    label1.Text += ".";
+                }
+                Thread.Sleep(750);
+            }
+        }
+
+        void chform()
+        {
+            this.Width = client.Properties.Resources.field.Width + 5;
+            this.Height = client.Properties.Resources.field.Height + 13;
+            this.BackgroundImage = new Bitmap(Resources.field);
+            this.BackgroundImageLayout = ImageLayout.None;
+            button1.Visible = false;
+            label1.Visible = false;
+            t = new Thread(getC);
+            create();
+        }
         private void create()
         {
             for (int i = 0; i < 9; i++)
@@ -90,12 +184,12 @@ namespace Go
                 roundlabel(path, sender);
                 sender.BackColor = Color.FromName(me);
                 sender.Enabled = false;
-                send(sender.Name);
+                sok.Send(Encoding.ASCII.GetBytes(sender.Name));
             }
             else
             {
                 MessageBox.Show("Non puoi mettere qui la tua pedina");
-            }   
+            }
         }
         private void label1_Click(object sender, EventArgs e)
         {
@@ -127,20 +221,18 @@ namespace Go
                 sok.Close();
                 this.Close();
             }
-        }
-        private void send(string msg)
-        {
-            sok.Send(Encoding.ASCII.GetBytes(msg));
-            recive();
+            Thread t = new Thread(new ThreadStart(recive));
         }
         private void recive()
         {
-            while (sok.Receive(bytes).ToString().Length != 81)
+            string tab="";
+            while (tab.Length != 81)
             {
-                sok.Receive(bytes);
+                tab += sok.Receive(bytes);
             }
             int i = 0, j = 0;
-            while(i != 8 && j != 8){
+            while (i != 8 && j != 8)
+            {
                 {
                     if (bytes.ToString().ElementAt(i) == '0')
                     {
@@ -167,11 +259,6 @@ namespace Go
             }
         }
 
-        private void play_Load(object sender, EventArgs e)
-        {
-            t = new Thread(getC);
-        }
-
         private void getC()
         {
             try
@@ -183,33 +270,24 @@ namespace Go
                     {
                         int bytesRec = sok.Receive(bytes);
                     }
-                    while(me != "white" && me != "black")
+                    while (me != "white" && me != "black")
                     {
-                        int i = 0;
                         try
                         {
-                            me = bytes.ToString();
-                            msg = Encoding.ASCII.GetBytes("ok**");
+                            me = bytes.ToString().Split('*')[0];
+                            if (me == "white")
+                            {
+                                turn = true;
+                            }
+                            else
+                            {
+                                turn = false;
+                            }
+                            sok.Send(Encoding.ASCII.GetBytes("ok**"));
                         }
                         catch (Exception ex)
                         {
                             MessageBox.Show(ex.ToString(), "Errore di comunicazione con il server");
-                            msg = Encoding.ASCII.GetBytes("a**");
-                            i++;
-                        }
-                        if (i == 10)
-                        {
-                            MessageBox.Show("Non è stato possibile comunicare con il server");
-                            break;
-                        }
-                        sok.Send(msg);
-                    }
-                    sok.Receive(bytes);
-                    if (bytes.ToString() == "yt**")
-                    {
-                        lock (this)
-                        {
-                            turn = true;
                         }
                     }
                 }

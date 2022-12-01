@@ -24,7 +24,7 @@ namespace Go
             if (e.KeyChar == (char)13)
             {
                 username = textBox1.Text;
-                Form m = new wait(username);
+                Form m = new play(username);
                 m.Visible = true;
                 this.Visible = false;
             }
