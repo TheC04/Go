@@ -11,4 +11,4 @@ Per posizionare la nostra pedina sarà sufficiente cliccare con il mouse nella p
 
 Il gioco termina quando tutta la scacchiera è occupata.
 
-Purtroppo non sono riuscito a terminarlo nel modo migliore... ma traquilli, seguiranno aggiornamenti.
+Purtroppo non sono riuscito a terminarlo nel modo migliore... ma tranquilli, seguiranno aggiornamenti.
