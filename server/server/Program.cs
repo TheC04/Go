@@ -40,6 +40,8 @@ namespace server
         public class global
         {
             int i = 0;
+            user[] u = new user[2];
+            public static bool ok = false;
             
             public void connect()
             {
@@ -51,10 +53,10 @@ namespace server
                         IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 5000);
                         Socket sok = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                         sok.Bind(localEndPoint);
-                        sok.Listen(10);
-                        Socket handler = sok.Accept();
-                        lock ((object)i)
+                        sok.Listen(2);
+                        while (true)
                         {
+                            Socket handler = sok.Accept();
                             client c = new client(handler, i);
                             Thread t = new Thread(new ThreadStart(c.setup));
                             t.Name = "T" + i.ToString();
@@ -80,7 +82,6 @@ namespace server
             int i;
             Socket clientS;
             string status, winner;
-            user[] u = new user[2];
             bool end = false, turn;
             byte[] bytes = new Byte[1024];
             slot[][] f = new slot[9][];
@@ -98,25 +99,24 @@ namespace server
 
             public void setup()
             {
-                bool ok = false;
                 string data = "";
                 while (data.IndexOf("**") == -1)
                 {
                     try
                     {
                         int bytesRec = clientS.Receive(bytes);
-                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
+                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
                         lock ((object)i)
                         {
-                            u[i].username = data;
+                            u[i].username = data.Split('*')[0];
                             Console.WriteLine(u[i].username);
+                            clientS.Send(Encoding.ASCII.GetBytes("ok**"));
                         }
                     }catch(Exception e)
                     {
                         Console.WriteLine("Error: " + e);
                     }
                 }
-                clientS.Send(Encoding.ASCII.GetBytes("ok**"));
                 if (i == 1)
                 {
                     Console.WriteLine("Thread  " + Thread.CurrentThread.Name + " arrived");
@@ -131,79 +131,59 @@ namespace server
                     while (data.IndexOf("**") == -1)
                     {
                         int bytesRec = clientS.Receive(bytes);
-                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
-                        if (data == "ok")
+                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                        if (data.Split('*')[0] == "ok")
                         {
                             break;
                         }
                     }
                     color();
                     Console.WriteLine("Color chosen");
-                    ok = true;
-                    if (Thread.CurrentThread.Name == "T0")
+                    lock (this)
                     {
-                        clientS.Send(Encoding.ASCII.GetBytes(u[0].color));
-                    }
-                    else
-                    {
-                        clientS.Send(Encoding.ASCII.GetBytes(u[1].color));
-                    }
-                    while (data.IndexOf("**") == -1)
-                    {
-                        int bytesRec = clientS.Receive(bytes);
-                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
-                        if (data == "ok")
-                        {
-                            break;
-                        }
+                        global.ok = true;
                     }
                 }
                 else
                 {
                     Console.WriteLine("Thread " + Thread.CurrentThread.Name + " is waiting for an opponent...");
-                    while (!ok)
+                    while (!global.ok)
                     {
                         Thread.Sleep(1000);
                     }
-                    if (Thread.CurrentThread.Name == "T0")
-                    {
-                        clientS.Send(Encoding.ASCII.GetBytes(u[0].color));
-                    }
-                    else
-                    {
-                        clientS.Send(Encoding.ASCII.GetBytes(u[1].color));
-                    }
-                    while (data.IndexOf("**") == -1)
-                    {
-                        int bytesRec = clientS.Receive(bytes);
-                        data += Encoding.ASCII.GetString(bytes, 0, bytesRec).Split('*')[0];
-                        if (data == "ok")
-                        {
-                            break;
-                        }
-                    }
+                }
+                if (Thread.CurrentThread.Name == "T0")
+                {
+                    clientS.Send(Encoding.ASCII.GetBytes(u[0].color));
+                }
+                else
+                {
+                    clientS.Send(Encoding.ASCII.GetBytes(u[1].color));
+                }
+                data = "";
+                while (data.IndexOf("**") == -1)
+                {
+                    int bytesRec = clientS.Receive(bytes);
+                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
                 }
                 match();
-                //handler.Shutdown(SocketShutdown.Both);
-                //handler.Close();
             }
             public void color()
             {
-                bool ok = false;
-                while (!ok)
+                while (!global.ok)
                 {
                     Random r = new Random();
                     if (r.Next(0, 100) < 50)
                     {
                         u[1].color = "white**";
                         u[0].color = "black**";
-                        ok = true;
+                        global.ok = true;
                     }
                     else if (r.Next(0, 100) > 50)
                     {
                         u[1].color = "black**";
                         u[0].color = "white**";
-                        ok = true;
+                        global.ok = true;
                     }
                 }
             }
@@ -240,6 +220,7 @@ namespace server
 
             public void match()
             {
+                Console.WriteLine("Match started");
                 byte[] bytes = new Byte[1024];
                 if (u[0].color == "black**")
                 {
@@ -414,6 +395,7 @@ namespace server
 
         static void Main(string[] args)
         {
+            //Console.SetWindowSize(20, 20);
             global g = new global();
             g.connect();
         }

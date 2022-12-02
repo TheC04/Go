@@ -47,23 +47,26 @@ namespace Go
                 sok.Connect(remoteEP);
                 byte[] msg = Encoding.ASCII.GetBytes(Sender + "**");
                 int bytesSent = sok.Send(msg);
-                if (Encoding.ASCII.GetString(bytes).Split('*')[0] != "ok")
+                while (bytes.ToString().IndexOf("**") == -1)
                 {
                     sok.Receive(bytes);
                 }
                 while (bytes.ToString().IndexOf("**") == -1)
                 {
-                    op = bytes.ToString().Split('*')[0];
-                    MessageBox.Show("Stai per sfidare " + op);
-                    opponent = true;
+                    op = bytes.ToString();
                 }
+                op = op.Split('*')[0];
+                MessageBox.Show("Stai per sfidare " + op);
+                opponent = true;
                 sok.Send(Encoding.ASCII.GetBytes("ok**"));
                 while (bytes.ToString().IndexOf("**") == -1)
                 {
+                    Console.WriteLine("ok");
                     op = bytes.ToString().Split('*')[0];
                     MessageBox.Show("Sarai il " + op);
                     me = op;
                 }
+                sok.Send(Encoding.ASCII.GetBytes("ok**"));
                 chform();
             }
             catch (ArgumentNullException ane)
@@ -381,6 +384,9 @@ namespace Go
         {
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
+            Random r = new Random();
+            this.Location = new Point(100 + r.Next(10, 21), 100 + r.Next(10, 21));
+            this.StartPosition = FormStartPosition.Manual;
         }
 
         private void getC()
