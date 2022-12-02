@@ -16,28 +16,20 @@ namespace Go
         public login()
         {
             InitializeComponent();
-            this.DoubleBuffered = true;
         }
 
-        private void textBox1_KeyPress(object sender, KeyPressEventArgs e)
+        private void white_Click(object sender, EventArgs e)
         {
-            if (e.KeyChar == (char)13)
-            {
-                username = textBox1.Text;
-                Form m = new play(username);
-                m.Visible = true;
-                this.Visible = false;
-            }
-            else if (!char.IsLetterOrDigit(e.KeyChar) && e.KeyChar != Convert.ToChar(8) && e.KeyChar != ' ')
-            {
-                MessageBox.Show("Non si possono usere caratteri speciali", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                e.Handled = true;
-            }
+            Form f = new play(white.Name);
+            f.Show();
+            this.Hide();
         }
 
-        private void start_Click(object sender, EventArgs e)
+        private void black_Click(object sender, EventArgs e)
         {
-            Console.WriteLine("aaa");
+            Form f = new play(black.Name);
+            f.Show();
+            this.Hide();
         }
     }
 }

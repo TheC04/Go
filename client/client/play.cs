@@ -13,18 +13,18 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using client.Properties;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace Go
 {
     public partial class play : Form
     {
         Thread t;
-        string me;
-        bool turn = false;
+        bool turn, end = true, opponent = false;
         byte[] bytes = new byte[1024];
         Label[][] lb = new Label[9][];
-        string username, op;
-        bool opponent = false;
+        string color, op;
         Thread listener, waiter;
         static IPAddress ipAddress = IPAddress.Parse("127.0.0.1");
         IPEndPoint remoteEP = new IPEndPoint(ipAddress, 5000);
@@ -33,41 +33,98 @@ namespace Go
         public play(string u)
         {
             InitializeComponent();
-            username = u;
+            color = u;
             label1.Hide();
             CheckForIllegalCrossThreadCalls = false;
+            if (color == "white")
+            {
+                turn = false;
+                op = "black";
+            }
+            else
+            {
+                turn = true;
+                op = "white";
+            }
         }
 
+        private delegate void MyDelegate();
         private void listen()
         {
-            string Sender = username;
             byte[] bytes = new byte[1024];
             try
             {
-                sok.Connect(remoteEP);
-                byte[] msg = Encoding.ASCII.GetBytes(Sender + "**");
-                int bytesSent = sok.Send(msg);
-                while (bytes.ToString().IndexOf("**") == -1)
+                bool connected = false;
+                byte[] msg = Encoding.ASCII.GetBytes(color.ToLower() + "**");
+                while (!connected)
+                {
+                    sok.Connect(remoteEP);
+                    int bytesSent = sok.Send(msg);
+                    if (sok.Connected)
+                    {
+                        connected = true;
+                    }
+                }
+                while (Encoding.ASCII.GetString(bytes).IndexOf("**") == -1)
                 {
                     sok.Receive(bytes);
                 }
-                while (bytes.ToString().IndexOf("**") == -1)
+                this.Invoke((MyDelegate)delegate
                 {
-                    op = bytes.ToString();
-                }
-                op = op.Split('*')[0];
-                MessageBox.Show("Stai per sfidare " + op);
-                opponent = true;
-                sok.Send(Encoding.ASCII.GetBytes("ok**"));
-                while (bytes.ToString().IndexOf("**") == -1)
+                    chform();
+                });
+                sok.Send(Encoding.ASCII.GetBytes("ready**"));
+                Array.Clear(bytes, 0, bytes.Length);
+                string op = "";
+                while (true)
                 {
-                    Console.WriteLine("ok");
-                    op = bytes.ToString().Split('*')[0];
-                    MessageBox.Show("Sarai il " + op);
-                    me = op;
+                    checkwin();
+                    if (!end)
+                    {
+                        while (op.IndexOf("**") == -1)
+                        {
+                            int bytesRec = sok.Receive(bytes);
+                            op += Encoding.ASCII.GetString(bytes, 0, bytesRec);
+                        }
+                        op = op.Split('*')[0];
+                        if (op != "move")
+                        {
+                            recive(op);
+                            op = "";
+                        }
+                        else
+                        {
+                            turn = true;
+                        }
+                    }
+                    else
+                    {
+                        while (Encoding.ASCII.GetString(bytes).IndexOf("**") == -1)
+                        {
+                            sok.Receive(bytes);
+                            op += Encoding.ASCII.GetString(bytes);
+                        }
+                        op = op.Split('*')[0];
+                        if (op == "user")
+                        {
+                            MessageBox.Show("Hai vinto!");
+                        }
+                        else if (op == "draw!")
+                        {
+                            MessageBox.Show("Hai pareggiato");
+                        }
+                        else
+                        {
+                            MessageBox.Show("Hai perso...");
+                        }
+                        sok.Send(Encoding.ASCII.GetBytes("close**"));
+                        sok.Shutdown(SocketShutdown.Both);
+                        sok.Close();
+                        Form f = new login();
+                        f.Show();
+                        this.Close();
+                    }
                 }
-                sok.Send(Encoding.ASCII.GetBytes("ok**"));
-                chform();
             }
             catch (ArgumentNullException ane)
             {
@@ -109,7 +166,7 @@ namespace Go
                 if (c == 3)
                 {
                     c = 0;
-                    label1.Text = "In attesa di un avversario";
+                    label1.Text = "In attesa del server";
                 }
                 else
                 {
@@ -122,13 +179,13 @@ namespace Go
 
         void chform()
         {
-            this.Width = client.Properties.Resources.field.Width + 5;
-            this.Height = client.Properties.Resources.field.Height + 13;
+            this.Width = Resources.field.Width + 16;
+            this.Height = Resources.field.Height + 39;
+            this.MaximumSize = new Size(Resources.field.Width + 16, Resources.field.Height + 39);
             this.BackgroundImage = new Bitmap(Resources.field);
             this.BackgroundImageLayout = ImageLayout.None;
             button1.Visible = false;
             label1.Visible = false;
-            t = new Thread(getC);
             create();
         }
         private void create()
@@ -169,116 +226,7 @@ namespace Go
                 }
             }
         }
-        private void roundlabel(System.Drawing.Drawing2D.GraphicsPath path, Label l)
-        {
-            path.AddEllipse(0, 0, l.Width, l.Height);
-            l.Region = new Region(path);
-            Graphics graphics = this.CreateGraphics();
-            Rectangle rectangle = new Rectangle(100, 100, 200, 200);
-            graphics.DrawEllipse(Pens.Black, rectangle);
-        }
-        private void labelc(Label sender)
-        {
-            var path = new System.Drawing.Drawing2D.GraphicsPath();
-            int c = int.Parse(sender.Name.Split(';')[0]), r = int.Parse(sender.Name.Split(';')[1]);
-            if(checksuicide(c, r))
-            {
-                if (sender.BackColor == Color.Transparent)
-                {
-                    roundlabel(path, sender);
-                    sender.BackColor = Color.FromName(me);
-                    sender.Enabled = false;
-                    sok.Send(Encoding.ASCII.GetBytes(sender.Name));
-                }
-                else
-                {
-                    MessageBox.Show("Non puoi mettere qui la tua pedina");
-                }
-            }
-            else
-            {
-                MessageBox.Show("Non puoi mettere una pedina dove verrebbe mangiata");
-            }
-            
-        }
-        bool checksuicide(int c, int r)
-        {
-            bool ok = true;
-            if (c == 0)
-            {
-                if (r == 0)
-                {
-                    if (lb[c + 1][r].BackColor!=Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-                else if (r == 8)
-                {
-                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-                else
-                {
-                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-            }
-            else if (c == 8)
-            {
-                if (r == 0)
-                {
-                    if (lb[c - 1][r].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-                else if (r == 8)
-                {
-                    if (lb[c - 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-                else
-                {
-                    if (lb[c - 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-            }
-            else
-            {
-                if (r == 0)
-                {
-                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me) && lb[c - 1][r].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-                else if (r == 8)
-                {
-                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c - 1][r].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-                else
-                {
-                    if (lb[c + 1][r].BackColor != Color.FromName(me) && lb[c][r - 1].BackColor != Color.FromName(me) && lb[c][r + 1].BackColor != Color.FromName(me) && lb[c - 1][r].BackColor != Color.FromName(me))
-                    {
-                        ok = false;
-                    }
-                }
-            }
-            return ok;
-        }
-        private void label1_Click(object sender, EventArgs e)
+        void label1_Click(object sender, EventArgs e)
         {
             int i = 0;
             if (turn)
@@ -308,136 +256,199 @@ namespace Go
                 sok.Close();
                 this.Close();
             }
-            Thread t = new Thread(new ThreadStart(recive));
         }
-        private void recive()
+        private void labelc(Label sender)
         {
-            string tab = "", name = "";
-            while (tab.Length != 81)
+            var path = new System.Drawing.Drawing2D.GraphicsPath();
+            int c = int.Parse(sender.Name.Split(';')[0]), r = int.Parse(sender.Name.Split(';')[1]);
+            if(checksuicide(c, r))
             {
-                tab += sok.Receive(bytes).ToString().Split('*')[0];
-                if (tab == "end")
+                if (sender.BackColor == Color.Transparent)
                 {
-                    while (name.IndexOf("*") != -1)
+                    sender.BackColor = Color.FromName(color);
+                    sender.Enabled = false;
+                    sok.Send(Encoding.ASCII.GetBytes(sender.Name.Split(';')[0] + sender.Name.Split(';')[1] + "**"));
+                }
+                else
+                {
+                    MessageBox.Show("Non puoi mettere qui la tua pedina");
+                }
+            }
+            else
+            {
+                MessageBox.Show("Non puoi mettere una pedina dove verrebbe mangiata");
+            }
+            
+        }
+        bool checksuicide(int c, int r)
+        {
+            bool ok = true;
+            if (c == 0)
+            {
+                if (r == 0)
+                {
+                    if (lb[c + 1][r].BackColor==Color.FromName(op) && lb[c][r + 1].BackColor == Color.FromName(op))
                     {
-                        name += sok.Receive(bytes).ToString().Split('*')[0];
-                        if (name == username)
+                        ok = false;
+                    }
+                }
+                else if (r == 8)
+                {
+                    if (lb[c + 1][r].BackColor == Color.FromName(op) && lb[c][r - 1].BackColor == Color.FromName(op))
+                    {
+                        ok = false;
+                    }
+                }
+                else
+                {
+                    if (lb[c + 1][r].BackColor == Color.FromName(op) && lb[c][r - 1].BackColor == Color.FromName(op) && lb[c][r + 1].BackColor == Color.FromName(op))
+                    {
+                        ok = false;
+                    }
+                }
+            }
+            else if (c == 8)
+            {
+                if (r == 0)
+                {
+                    if (lb[c - 1][r].BackColor == Color.FromName(op) && lb[c][r + 1].BackColor == Color.FromName(op))
+                    {
+                        ok = false;
+                    }
+                }
+                else if (r == 8)
+                {
+                    if (lb[c - 1][r].BackColor == Color.FromName(op) && lb[c][r - 1].BackColor == Color.FromName(op))
+                    {
+                        ok = false;
+                    }
+                }
+                else
+                {
+                    if (lb[c - 1][r].BackColor == Color.FromName(op) && lb[c][r - 1].BackColor == Color.FromName(op) && lb[c][r + 1].BackColor == Color.FromName(op))
+                    {
+                        ok = false;
+                    }
+                }
+            }
+            else
+            {
+                if (lb[c + 1][r].BackColor == Color.Transparent || lb[c - 1][r].BackColor == Color.Transparent)
+                {
+                    ok = true;
+                }
+                else
+                {
+                    if (lb[c][r - 1].BackColor == Color.Transparent || lb[c][r + 1].BackColor == Color.Transparent)
+                    {
+                        ok = true;
+                    }
+                    else
+                    {
+                        if (r == 0)
                         {
-                            sok.Shutdown(SocketShutdown.Both);
-                            sok.Close();
-                            MessageBox.Show("Hai vinto!");
-                            Form f = new login();
-                            f.Show();
-                            this.Close();
+                            if (lb[c + 1][r].BackColor == Color.FromName(op) && lb[c][r + 1].BackColor == Color.FromName(op) && lb[c - 1][r].BackColor == Color.FromName(op))
+                            {
+                                ok = false;
+                            }
                         }
-                        else if (name == "draw!")
+                        else if (r == 8)
                         {
-                            sok.Shutdown(SocketShutdown.Both);
-                            sok.Close();
-                            MessageBox.Show("Pareggio");
-                            Form f = new login();
-                            f.Show();
-                            this.Close();
+                            if (lb[c + 1][r].BackColor == Color.FromName(op) && lb[c][r - 1].BackColor == Color.FromName(op) && lb[c - 1][r].BackColor == Color.FromName(op))
+                            {
+                                ok = false;
+                            }
                         }
                         else
                         {
-                            sok.Shutdown(SocketShutdown.Both);
-                            sok.Close();
-                            MessageBox.Show("Hai perso...");
-                            Form f = new login();
-                            f.Show();
-                            this.Close();
+                            if (lb[c + 1][r].BackColor == Color.FromName(op) && lb[c][r - 1].BackColor == Color.FromName(op) && lb[c][r + 1].BackColor == Color.FromName(op) && lb[c - 1][r].BackColor == Color.FromName(op))
+                            {
+                                ok = false;
+                            }
                         }
                     }
                 }
             }
-            int i = 0, j = 0;
-            while (i != 8 && j != 8)
+            if (!ok)
             {
-                {
-                    if (bytes.ToString().ElementAt(i) == '0')
-                    {
-                        lb[j][i].BackColor = Color.Transparent;
-                    }
-                    else if (bytes.ToString().ElementAt(i) == '1')
-                    {
-                        lb[j][i].BackColor = Color.White;
-                    }
-                    else
-                    {
-                        lb[j][i].BackColor = Color.Black;
-                    }
-                    if (i == 8)
-                    {
-                        i = 0;
-                        j++;
-                    }
-                    else
-                    {
-                        i++;
-                    }
-                }
+                turn = true;
             }
+            return ok;
         }
 
-        private void play_Load(object sender, EventArgs e)
+        private void recive(string tab)
         {
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            Random r = new Random();
-            this.Location = new Point(100 + r.Next(10, 21), 100 + r.Next(10, 21));
-            this.StartPosition = FormStartPosition.Manual;
-        }
-
-        private void getC()
-        {
-            try
+            int c, r;
+            string name = "";
+            if (tab == "end")
             {
-                try
+                //sok.Send(Encoding.ASCII.GetBytes("ok**"));
+                while (name.IndexOf("*") != -1)
                 {
-                    sok.Connect(remoteEP);
-                    while (bytes.ToString().Length > 0)
+                    sok.Receive(bytes);
+                    name += Encoding.ASCII.GetString(bytes);
+                }
+                name = name.Split('*')[0];
+                if (name == "user")
+                {
+                    MessageBox.Show("Hai vinto!");
+                }
+                else if (name == "draw!")
+                {
+                    MessageBox.Show("Pareggio");
+                }
+                else
+                {
+                    MessageBox.Show("Hai perso...");
+                }
+                sok.Send(Encoding.ASCII.GetBytes("close**"));
+                sok.Shutdown(SocketShutdown.Both);
+                sok.Close();
+                Form f = new login();
+                f.Show();
+                this.Close();
+            }
+            else
+            {
+                c = int.Parse(tab.ElementAt(0).ToString());
+                r = int.Parse(tab.ElementAt(1).ToString());
+                for (int i = 0; i < 9; i++)
+                {
+                    for (int j = 0; j < 9; j++)
                     {
-                        int bytesRec = sok.Receive(bytes);
-                    }
-                    while (me != "white" && me != "black")
-                    {
-                        try
+                        if (i == c && j == r)
                         {
-                            me = bytes.ToString().Split('*')[0];
-                            if (me == "white")
+                            if (color == "white" || color == "bianco")
                             {
-                                turn = true;
+                                lb[i][j].BackColor = Color.Black;
                             }
                             else
                             {
-                                turn = false;
+                                lb[i][j].BackColor = Color.White;
                             }
-                            sok.Send(Encoding.ASCII.GetBytes("ok**"));
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show(ex.ToString(), "Errore di comunicazione con il server");
                         }
                     }
                 }
-                catch (ArgumentNullException ane)
-                {
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-                catch (SocketException se)
-                {
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
-                catch (Exception en)
-                {
-                    Console.WriteLine("Unexpected exception : {0}", en.ToString());
-                }
-
+                turn = true;
             }
-            catch (Exception en)
+            checkwin();
+        }
+
+        void checkwin()
+        {
+            for (int i = 0; i < 9; i++)
             {
-                Console.WriteLine(en.ToString());
+                for (int j = 0; j < 9; j++)
+                {
+                    if (lb[i][j].BackColor == Color.Transparent)
+                    {
+                        end = false;
+                    }
+                }
+            }
+            if (end)
+            {
+                sok.Send(Encoding.ASCII.GetBytes("end**"));
             }
         }
 
