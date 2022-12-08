@@ -86,7 +86,7 @@ namespace server1
                     }
                     data = data.Split('*')[0];
                     Console.WriteLine(data);
-                    //
+                    
                     if(data=="bianco" || data == "white")
                     {
                         user = "white";
@@ -106,7 +106,7 @@ namespace server1
                         data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
                     }
                     Console.WriteLine(data);
-                    //
+                    
                     if (server == "black")
                     {
                         turn = true;
@@ -126,7 +126,7 @@ namespace server1
                     {
                         string s = chmove() + "**";
                         Console.WriteLine(s);
-                        //
+                        
                         handler.Send(Encoding.ASCII.GetBytes(status + "**"));
                     }
                     else
@@ -140,7 +140,7 @@ namespace server1
                         }
                         data = data.Split('*')[0];
                         Console.WriteLine(data);
-                        //
+                        
                         refresh(data, user);
                     }
                     turn = !turn;

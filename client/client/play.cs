@@ -380,7 +380,6 @@ namespace Go
             string name = "";
             if (tab == "end")
             {
-                //sok.Send(Encoding.ASCII.GetBytes("ok**"));
                 while (name.IndexOf("*") != -1)
                 {
                     sok.Receive(bytes);
