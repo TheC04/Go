@@ -127,7 +127,7 @@ namespace server1
                         string s = chmove() + "**";
                         Console.WriteLine(s);
                         //
-                        handler.Send(Encoding.ASCII.GetBytes(s));
+                        handler.Send(Encoding.ASCII.GetBytes(status + "**"));
                     }
                     else
                     {
@@ -156,7 +156,7 @@ namespace server1
                 int col, row;
                 bool ok = false;
                 string s = "";
-                Random c = new Random(), r = new Random();
+                Random c = new Random(68), r = new Random(71);
                 while (!ok)
                 {
                     col = c.Next(0, 9);
@@ -200,11 +200,11 @@ namespace server1
                 {
                     f[c][r - 1].b = u;
                 }
-                if (c < 9)
+                if (c < 8)
                 {
                     f[c + 1][r].l = u;
                 }
-                if (r < 9)
+                if (r < 8)
                 {
                     f[c][r + 1].t = u;
                 }
@@ -230,7 +230,6 @@ namespace server1
                         status += f[i][j].val.ToString();
                     }
                 }
-                Console.WriteLine(status);
                 if (checkwin())
                 {
                     Console.WriteLine("Game ended");
@@ -246,6 +245,7 @@ namespace server1
                             if (f[i][j].val == 0)
                             {
                                 end = false;
+                                break;
                             }
                             else
                             {

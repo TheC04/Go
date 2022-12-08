@@ -232,7 +232,6 @@ namespace Go
             if (turn)
             {
                 labelc((Label)sender);
-                turn = false;
             }
             else
             {
@@ -259,7 +258,6 @@ namespace Go
         }
         private void labelc(Label sender)
         {
-            var path = new System.Drawing.Drawing2D.GraphicsPath();
             int c = int.Parse(sender.Name.Split(';')[0]), r = int.Parse(sender.Name.Split(';')[1]);
             if(checksuicide(c, r))
             {
@@ -268,6 +266,7 @@ namespace Go
                     sender.BackColor = Color.FromName(color);
                     sender.Enabled = false;
                     sok.Send(Encoding.ASCII.GetBytes(sender.Name.Split(';')[0] + sender.Name.Split(';')[1] + "**"));
+                    turn = false;
                 }
                 else
                 {
@@ -378,7 +377,6 @@ namespace Go
 
         private void recive(string tab)
         {
-            int c, r;
             string name = "";
             if (tab == "end")
             {
@@ -410,27 +408,28 @@ namespace Go
             }
             else
             {
-                c = int.Parse(tab.ElementAt(0).ToString());
-                r = int.Parse(tab.ElementAt(1).ToString());
+                int k = 0;
                 for (int i = 0; i < 9; i++)
                 {
                     for (int j = 0; j < 9; j++)
                     {
-                        if (i == c && j == r)
+                        if (tab.ToCharArray()[k] == '1')
                         {
-                            if (color == "white" || color == "bianco")
-                            {
-                                lb[i][j].BackColor = Color.Black;
-                            }
-                            else
-                            {
-                                lb[i][j].BackColor = Color.White;
-                            }
+                            lb[i][j].BackColor = Color.White;
                         }
+                        else if(tab.ToCharArray()[k] == '2')
+                        {
+                            lb[i][j].BackColor = Color.Black;
+                        }
+                        else
+                        {
+                            lb[i][j].BackColor = Color.Transparent;
+                        }
+                        k++;
                     }
                 }
-                turn = true;
             }
+            turn = true;
             checkwin();
         }
 
